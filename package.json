@@ -1,0 +1,25 @@
+{
+  "name": "nfrac",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "http-server": "node_modules/http-server/bin/http-server --cors='*' &",
+    "http-server-quiet": "node_modules/http-server/bin/http-server --cors='*' -s &"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/airladon/nfrac.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/airladon/nfrac/issues"
+  },
+  "homepage": "https://github.com/airladon/nfrac#readme",
+  "devDependencies": {
+    "eslint": "^7.32.0",
+    "eslint-config-airbnb-base": "^14.2.1",
+    "http-server": "^13.0.2"
+  }
+}
