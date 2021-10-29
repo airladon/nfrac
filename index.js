@@ -445,7 +445,7 @@ const plot = figure.add({
   width,
   height: width * aspectRatio - 0.5,
   cross: [0, 0],
-  zoom: true,
+  zoom: { max: 100000, min: 0.01 },
   pan: true,
   autoGrid: true,
   plotAreaLabels: { left: 0.05, right: 0, bottom: 0.05, top: 0 },
@@ -488,8 +488,9 @@ controls._slider.notifications.add('changed', (v) => {
 });
 
 controls._home.notifications.add('touch', () => {
-  offset = new Point(0, 0);
-  zoom = 1;
+  figure.stop();
+  plot.zoomValue([0, 0], 1);
+  plot.panToValue([0, 0], [width / 2, (width * aspectRatio - 0.5) / 2]);
   updated();
 });
 
