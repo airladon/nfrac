@@ -1,7 +1,7 @@
 /* eslint-disable object-curly-newline, object-property-newline */
 /* globals Fig */
 // Get useful methods from FigureOne
-const { range, Figure, Point, round, Line } = Fig;
+const { range, Figure, Point, round } = Fig;
 
 // Global config
 const maxIterations = 30;
@@ -19,9 +19,7 @@ const colors = [
 
 // Global variables
 let offset = new Point(0, 0); // Pan offset
-let zooming = false;
 let zoom = 1;
-let mouse = [0, 0];       // Mouse location when mouse scroll wheeling
 let pIndex = 0;           // preset index
 let roots = 5;
 let iterations = 30;
@@ -31,12 +29,6 @@ let PNeedsUpdate = false; // Polynomial needs to be updated
 // Create Figure
 const figure = new Figure({
   color: [1, 1, 1, 1], scene: [-width / 2, -height / 2, width / 2, height / 2],
-});
-
-
-// Add a move pad over the entire window for panning the figure
-const movePad = figure.add({
-  make: 'rectangle', width, height, color: [0, 0, 0, 0], move: true,
 });
 
 /*
@@ -207,82 +199,6 @@ const plane = figure.add({
 });
 
 /*
-..######...########..####.########.
-.##....##..##.....##..##..##.....##
-.##........##.....##..##..##.....##
-.##...####.########...##..##.....##
-.##....##..##...##....##..##.....##
-.##....##..##....##...##..##.....##
-..######...##.....##.####.########.
-*/
-// An explorable grid that can be panned and zoomed will be integrated
-// into FigureOne, so much of this section will go away
-const grid = figure.add({
-  make: 'grid',
-  bounds: [-width / 2, -height / 2, width, height],
-  color: [1, 1, 1, 0.7],
-  line: { width: 0.005 },
-  step: 0.5,
-});
-
-function createGridLabels(num, xAlign, yAlign) {
-  const gridLabels = [];
-  for (let i = 0; i < num; i += 1) {
-    gridLabels.push(figure.add({
-      make: 'text',
-      color: [1, 1, 1, 1],
-      font: { size: 0.15 },
-      yAlign,
-      xAlign,
-    }));
-  }
-  return gridLabels;
-}
-
-const y = createGridLabels(12, 'left', 'middle');
-const x = createGridLabels(16, 'center', 'top');
-
-function updated(rootsUpdated = false) {
-  needsUpdate = true;
-  if (rootsUpdated) {
-    PNeedsUpdate = true;
-  }
-  figure.animateNextFrame();
-}
-
-function updateGridLabels(type, axis, orthogonal, start, step, startVal, stepVal) {
-  for (let i = 0; i < axis.length; i += 1) {
-    const val = startVal + stepVal * i;
-    let out;
-    if (round(val, 4) === 0 && val !== 0) {
-      out = `${val.toExponential(1)}`;
-    } else {
-      out = `${round(val, 4)}`;
-    }
-    if (type === 'y') {
-      out += 'i';
-      if (val === 0) {
-        out = '';
-      }
-      if (out.length > 4 && orthogonal + out.length * 0.08 > width / 2) {
-        orthogonal = width / 2 - out.length * 0.07;
-      }
-    }
-    axis[i].custom.setText(out);
-    if (type === 'y') {
-      axis[i].setPosition(orthogonal, start + step * i);
-    } else {
-      axis[i].setPosition(start + step * i, orthogonal);
-    }
-    if (type === 'y' && start + step * i < -height / 2 + 0.55) {
-      axis[i].hide();
-    } else {
-      axis[i].show();
-    }
-  }
-}
-
-/*
 .########...#######...#######..########..######.
 .##.....##.##.....##.##.....##....##....##....##
 .##.....##.##.....##.##.....##....##....##......
@@ -324,10 +240,6 @@ const root2 = makeRoot(colors[2], [0, -2]);
 const root3 = makeRoot(colors[3], [1, 1]);
 const root4 = makeRoot(colors[4], [2, -1]);
 
-// Complex multiplication and addition - to be integrated into Point class in
-// FigureOne
-const mul = (a, b) => new Point(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
-
 /*
 .##.....##.########..########.....###....########.########.########.
 .##.....##.##.....##.##.....##...##.##......##....##.......##.....##
@@ -337,6 +249,15 @@ const mul = (a, b) => new Point(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
 .##.....##.##........##.....##.##.....##....##....##.......##....##.
 ..#######..##........########..##.....##....##....########.##.....##
 */
+
+function updated(rootsUpdated = false) {
+  needsUpdate = true;
+  if (rootsUpdated) {
+    PNeedsUpdate = true;
+  }
+  figure.animateNextFrame();
+}
+
 function update() {
   if (needsUpdate === false) {
     return;
@@ -356,34 +277,6 @@ function update() {
   root3.transform.updateScale(1 / zoom);
   root4.transform.updateScale(1 / zoom);
 
-  // Update grid
-  const step = 1 / 2 ** Math.floor(-Math.log(w / 12) / Math.log(2)) * 2;
-  grid.custom.updatePoints({
-    bounds: [-step * 4 * zoom, -step * 4 * zoom, step * 4 * 2 * zoom, step * 4 * 2 * zoom],
-    step: step * zoom,
-  });
-  const zoomOffset = offset.scale(zoom);
-  grid.setPosition([
-    zoomOffset.x % (step * zoom),
-    zoomOffset.y % (step * zoom),
-  ]);
-  updateGridLabels(
-    'y', y,
-    Math.min(Math.max(zoomOffset.x + 0.1, -width / 2 + 0.05), width / 2 - 0.3),
-    zoomOffset.y % (step * zoom) - step * zoom * 3,
-    step * zoom,
-    -offset.y + offset.y % step - step * 3,
-    step,
-  );
-  updateGridLabels(
-    'x', x,
-    Math.min(Math.max(zoomOffset.y - 0.1, -height / 2 + 0.6), height / 2 - 0.1),
-    zoomOffset.x % (step * zoom) - step * zoom * 4,
-    step * zoom,
-    -offset.x + offset.x % step - step * 4,
-    step,
-  );
-
   // If the roots have changed position, then recomput polynomial and
   // derivative and set correspondinguniforms
   if (PNeedsUpdate) {
@@ -393,12 +286,12 @@ function update() {
     const r3 = root3.getPosition();
     const r4 = root4.getPosition();
     const r = [r0, r1, r2, r3, r4];
-    let P = [mul(r0, r1), r0.add(r1).scale(-1), new Point(1, 0), zero, zero, zero];
+    let P = [r0.cmul(r1), r0.add(r1).scale(-1), new Point(1, 0), zero, zero, zero];
     let Pd = [P[1], new Point(2, 0), zero, zero, zero];
     for (let m = 3; m <= roots; m += 1) {
-      const Pm = [mul(P[0], r[m - 1].scale(-1)), zero, zero, zero, zero, zero];
+      const Pm = [P[0].cmul(r[m - 1].scale(-1)), zero, zero, zero, zero, zero];
       for (let t = 1; t < m; t += 1) {
-        Pm[t] = P[t - 1].add(mul(r[m - 1].scale(-1), P[t]));
+        Pm[t] = P[t - 1].add(r[m - 1].scale(-1).cmul(P[t]));
       }
       Pm[m] = new Point(1, 0);
       P = Pm;
@@ -528,6 +421,43 @@ const controls = figure.add({
 });
 
 /*
+.########..##........#######..########
+.##.....##.##.......##.....##....##...
+.##.....##.##.......##.....##....##...
+.########..##.......##.....##....##...
+.##........##.......##.....##....##...
+.##........##.......##.....##....##...
+.##........########..#######.....##...
+*/
+const plot = figure.add({
+  make: 'collections.plot',
+  font: { size: 0.15 },
+  x: {
+    start: -width / 2, stop: width / 2, step: 1,
+    line: false, ticks: false, autoStep: 2, labels: { hide: [0] },
+  },
+  y: {
+    start: -width / 2, stop: width / 2, step: 1, line: false, ticks: false,
+    autoStep: 2, labels: v => v.values.map(p => `${Fig.round(Math.abs(p), 4)}i`),
+  },
+  position: [-width / 2, -width / 2 * aspectRatio + 0.5],
+  color: [1, 1, 1, 1],
+  width,
+  height: width * aspectRatio - 0.5,
+  cross: [0, 0],
+  zoom: true,
+  pan: true,
+  autoGrid: true,
+  plotAreaLabels: { left: 0.05, right: 0, bottom: 0.05, top: 0 },
+});
+
+plot.notifications.add('update', () => {
+  zoom = plot.getZoom();
+  offset = plot.getPan();
+  updated();
+});
+
+/*
 .####.##....##.########.########.########.....###.....######..########
 ..##..###...##....##....##.......##.....##...##.##...##....##....##...
 ..##..####..##....##....##.......##.....##..##...##..##..........##...
@@ -550,16 +480,6 @@ root1.notifications.add('setTransform', () => updated(true));
 root2.notifications.add('setTransform', () => updated(true));
 root3.notifications.add('setTransform', () => updated(true));
 root4.notifications.add('setTransform', () => updated(true));
-movePad.notifications.add('setTransform', () => updated());
-
-movePad.notifications.add('setTransform', () => {
-  if (zooming) {
-    movePad.transform.updateTranslation([0, 0]);
-    return;
-  }
-  offset = offset.add(movePad.getPosition().scale(1 / zoom));
-  movePad.transform.updateTranslation([0, 0]);
-});
 
 controls._slider.notifications.add('changed', (v) => {
   iterations = round(v * maxIterations, 0);
@@ -598,83 +518,6 @@ controls._convergenceSpeed.notifications.add('off', () => {
   plane.drawingObject.uniforms.u_convergenceSpeed.value = [0.0];
 });
 
-
-/*
-.########..#######...#######..##.....##
-......##..##.....##.##.....##.###...###
-.....##...##.....##.##.....##.####.####
-....##....##.....##.##.....##.##.###.##
-...##.....##.....##.##.....##.##.....##
-..##......##.....##.##.....##.##.....##
-.########..#######...#######..##.....##
-*/
-// Mouse wheel zoom logic - will be merged into FigureOne
-const container = document.getElementById('figureOneContainer');
-
-container.addEventListener('wheel', (e) => {
-  const oldZoom = zoom;
-  zoom = Math.min(Math.max(0.01, zoom + e.deltaY / 10 * zoom / 100), 100000);
-  const glCenter = figure.transformPoint([mouse[0], mouse[1]], 'pixel', 'figure');
-  const newCenter = glCenter.scale(zoom / oldZoom);
-  offset = offset.add(glCenter.sub(newCenter).scale(1 / zoom));
-
-  updated();
-  e.preventDefault();
-});
-
-container.addEventListener('mousemove', (e) => {
-  mouse = [e.offsetX, e.offsetY];
-});
-
-// Pinch to zoom related logic - will be merged into FigureOne
-let lastDistance = 0;
-let lastCenter = new Point(0, 0);
-container.addEventListener('touchstart', (e) => {
-  if (e.targetTouches.length === 2) {
-    zooming = true;
-    const line = new Line(
-      [e.targetTouches[0].clientX, e.targetTouches[0].clientY],
-      [e.targetTouches[1].clientX, e.targetTouches[1].clientY],
-    );
-    const d = line.length();
-    lastDistance = d;
-    lastCenter = figure.transformPoint(figure.clientToPixel(line.pointAtPercent(0.5)), 'pixel', 'figure');
-  }
-}, false);
-
-window.addEventListener('touchend', (e) => {
-  if (zooming) {
-    zooming = false;
-    e.preventDefault();
-    if (e.targetTouches.length === 1) {
-      movePad.stopMovingFreely();
-      figure.touchDownHandler(figure.transformPoint(figure.clientToPixel(new Point(e.targetTouches[0].clientX, e.targetTouches[0].clientY)), 'pixel', 'figure'));
-    }
-  }
-}, false);
-
-container.addEventListener('touchmove', (e) => {
-  if (e.targetTouches.length < 2) {
-    return;
-  }
-  const line = new Line(
-    [e.targetTouches[0].clientX, e.targetTouches[0].clientY],
-    [e.targetTouches[1].clientX, e.targetTouches[1].clientY],
-  );
-
-  const d = line.length();
-  const c = line.pointAtPercent(0.5);
-
-  zoom = Math.min(Math.max(0.01, zoom + (d - lastDistance) / 1 * zoom / 100), 100000);
-  lastDistance = d;
-  const center = figure.transformPoint(figure.clientToPixel(c), 'pixel', 'figure');
-
-  offset = offset.add(center.sub(lastCenter).scale(1 / zoom));
-  lastCenter = center;
-
-  updated();
-  e.preventDefault();
-}, false);
 
 /*
 .########..########..########..######..########.########..######.
@@ -751,5 +594,3 @@ controls._roots.setStateIndex(3);
 figure.notifications.add('beforeDraw', () => update());
 PNeedsUpdate = true;
 
-// Uncomment to see frame rate
-// figure.addFrameRate(10, { position: [-2, 2] });
